@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>교무실 게시용 QR</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .poster-sheet { text-align: center; }
+    .poster-sheet img { width: min(280px, 70vw); height: auto; image-rendering: pixelated; background: white; }
+    @media print {
+      body { background: white; }
+      .no-print { display: none; }
+      #app { max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <main id="app">
+    <p class="school">송내고등학교 · 교무실 게시용</p>
+    <h1>교외체험학습 신청 확인</h1>
+    <section class="card no-print">
+      <p>QR에 넣는 값은 그림 코드가 아니라, 학생 휴대폰에서 열릴 주소입니다.</p>
+      <ol>
+        <li>이 폴더를 학교 공개 HTTPS 주소에 올립니다.</li>
+        <li>아래 칸에 <strong>index.html</strong> 주소를 붙여 넣습니다.</li>
+        <li>QR은 이 브라우저 안에서만 만듭니다. 주소를 외부로 보내지 않습니다.</li>
+        <li>인쇄해서 교무실에 붙입니다.</li>
+      </ol>
+      <label class="field">학생 화면 주소
+        <input id="page-url" autocomplete="off" placeholder="https://학교주소/교외체험학습/index.html">
+      </label>
+      <div class="actions">
+        <button type="button" id="make">QR 만들기</button>
+        <button type="button" class="secondary" id="print">인쇄</button>
+      </div>
+      <p id="qr-error" class="banner banner-no" hidden></p>
+    </section>
+    <section class="card poster-sheet" id="sheet" hidden>
+      <p class="kicker">출결 서류 확인</p>
+      <h2>휴대폰으로 찍고 신청 전에 확인하세요</h2>
+      <img id="qr" alt="교외체험학습 신청 확인 주소의 QR 코드">
+      <p id="shown-url"></p>
+    </section>
+  </main>
+  <script src="qrcode.js"></script>
+  <script src="rules.js"></script>
+  <script>
+    qrcode.stringToBytes = qrcode.stringToBytesFuncs["UTF-8"];
+    var input = document.getElementById("page-url");
+    var error = document.getElementById("qr-error");
+    if (window.SCHOOL_RULES && window.SCHOOL_RULES.publicUrl) {
+      input.value = window.SCHOOL_RULES.publicUrl;
+    }
+
+    function allowed(url) {
+      try {
+        var parsed = new URL(url);
+        if (parsed.protocol === "https:") return true;
+        var host = parsed.hostname;
+        return parsed.protocol === "http:" && (host === "localhost" || host === "127.0.0.1");
+      } catch (e) {
+        return false;
+      }
+    }
+
+    document.getElementById("make").addEventListener("click", function () {
+      var url = input.value.trim();
+      error.hidden = true;
+      if (!allowed(url)) {
+        error.hidden = false;
+        error.textContent = "https로 시작하는 학생 화면 주소를 넣으세요. 연습은 localhost 주소도 됩니다.";
+        return;
+      }
+      try {
+        var qr = qrcode(0, "M");
+        qr.addData(url);
+        qr.make();
+        document.getElementById("qr").src = qr.createDataURL(8, 4);
+        document.getElementById("shown-url").textContent = url;
+        document.getElementById("sheet").hidden = false;
+      } catch (e) {
+        error.hidden = false;
+        error.textContent = "주소가 너무 길어 QR을 만들지 못했습니다. 더 짧은 주소를 사용하세요.";
+      }
+    });
+
+    document.getElementById("print").addEventListener("click", function () {
+      window.print();
+    });
+  </script>
+</body>
+</html>

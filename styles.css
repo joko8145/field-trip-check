@@ -1,0 +1,204 @@
+:root {
+  --ink: #1c2430;
+  --muted: #5c6570;
+  --paper: #f3efe6;
+  --card: #fffdf8;
+  --line: #ddd4c6;
+  --navy: #1e3a5f;
+  --navy-soft: #e7eef6;
+  --red: #8d1f1c;
+  --red-soft: #fdecea;
+  --ok: #0f6b45;
+  --ok-soft: #e5f4ec;
+  --holiday: #8d1f1c;
+  --shadow: 0 10px 30px rgba(28, 36, 48, 0.06);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  font-size: 17px;
+  line-height: 1.55;
+  display: flex;
+  justify-content: center;
+  word-break: keep-all;
+}
+
+button, input, textarea { font: inherit; color: inherit; }
+
+#app {
+  width: min(440px, 100%);
+  padding: 16px 14px 40px;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.school { margin: 0; font-size: 13px; letter-spacing: 0.04em; color: var(--navy); font-weight: 700; }
+.progress { margin: 0; font-size: 13px; color: var(--muted); }
+
+h1 { font-size: 26px; line-height: 1.35; margin: 0 0 12px; }
+h2 { font-size: 18px; margin: 18px 0 8px; }
+
+.card, .official, .banner, .choice, .copy-block {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  margin: 0 0 12px;
+  box-shadow: var(--shadow);
+}
+
+.official {
+  border: 3px solid var(--red);
+  box-shadow: none;
+}
+
+.kicker {
+  margin: 0 0 6px;
+  color: var(--red);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-size: 13px;
+}
+
+.official h1 { color: var(--red); }
+
+.banner-no { background: var(--red-soft); border-color: #f0c2be; color: var(--red); }
+.banner-ok { background: var(--ok-soft); border-color: #b7dfc8; color: var(--ok); }
+.banner-info { background: #f7f1e4; border-color: #e6d7b8; }
+
+.banner strong, .official strong { font-weight: 800; }
+
+ul, ol { margin: 8px 0 0; padding-left: 1.2em; }
+li + li { margin-top: 6px; }
+
+.pair { display: grid; gap: 10px; }
+.pair h2 { margin-top: 0; }
+
+.tag {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.tag-before { background: #d9ebf5; color: #164e75; }
+.tag-after { background: #fde7c7; color: #8a4b08; }
+
+.check, .radio {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 8px 0;
+}
+
+.check input, .radio input {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+label span { display: block; }
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+button {
+  appearance: none;
+  border: 0;
+  border-radius: 12px;
+  min-height: 48px;
+  padding: 10px 14px;
+  background: var(--navy);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.secondary { background: white; color: var(--navy); border: 1px solid var(--navy); }
+button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+.actions button { flex: 1; }
+
+.field { display: block; margin: 0 0 12px; font-weight: 700; }
+.field input, .field textarea, .field select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: white;
+  font-weight: 400;
+}
+
+.field textarea { min-height: 140px; resize: vertical; }
+
+.help { color: var(--muted); font-size: 15px; margin: 0 0 10px; }
+
+.cal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.cal-head h2 { margin: 0; }
+.cal-head button { min-height: 44px; min-width: 44px; padding: 0 12px; }
+
+.week, .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.week span { text-align: center; font-size: 12px; color: var(--muted); font-weight: 700; }
+.week span:first-child, .week span:last-child { color: var(--holiday); }
+
+.days button {
+  min-height: 44px;
+  padding: 0;
+  background: white;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.days button.is-weekend { color: var(--holiday); }
+.days button.is-holiday { background: #fff4f2; color: var(--holiday); }
+.days button.is-range { background: var(--navy-soft); border-color: #c5d5e8; }
+.days button.is-selected { background: var(--navy); color: white; border-color: var(--navy); }
+.days button.is-today { outline: 2px solid var(--ok); }
+.days button.is-blocked { text-decoration: line-through; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 12px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; border: 1px solid var(--line); }
+.swatch.school { background: white; }
+.swatch.rest { background: #fff4f2; }
+.swatch.pick { background: var(--navy); }
+
+.summary { font-weight: 700; }
+.copy-block dt { font-size: 13px; color: var(--muted); margin-top: 10px; }
+.copy-block dd { margin: 2px 0 0; font-weight: 700; white-space: pre-wrap; }
+
+.footer-note { font-size: 13px; color: var(--muted); margin-top: 16px; }
+
+.choice button { width: 100%; margin-top: 8px; background: white; color: var(--ink); border: 1px solid var(--line); }
+.choice button[aria-pressed="true"] { background: var(--navy); color: white; border-color: var(--navy); }
+
+.period + .period { margin-top: 12px; }
+
+@media (min-width: 760px) {
+  #app { max-width: 860px; padding-top: 28px; }
+  .pair { grid-template-columns: 1fr 1fr; }
+}
