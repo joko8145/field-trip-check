@@ -10,7 +10,6 @@
   var toolsApi = window.DateTools;
   var app = document.getElementById("app");
   var today = new Date();
-  var nextPastId = 2;
 
   var LEARNING = [
     ["family", "가족 여행"],
@@ -47,9 +46,10 @@
       step: 0,
       error: "",
       guideOk: false,
-      noPast: false,
-      pastAck: false,
-      past: [{ id: 1, start: "", end: "", report: "" }],
+      usedDays: "",
+      reportStatus: "",
+      reportAck: false,
+      gapConfirm: false,
       mode: "range",
       start: "",
       end: "",
@@ -77,6 +77,12 @@
       safetyOk: false,
       view: {}
     };
+  }
+
+  function parseUsed(value) {
+    var text = String(value == null ? "" : value).trim();
+    if (!/^\d+$/.test(text)) return null;
+    return Number(text);
   }
 
   function assess() {
@@ -149,38 +155,18 @@
   }
 
   function pick(key, ymd) {
-    if (key === "apply") {
-      if (state.mode === "half") {
-        state.halfDate = ymd;
-        return;
-      }
-      if (!state.start || state.end) {
-        state.start = ymd;
-        state.end = "";
-      } else if (ymd < state.start) {
-        state.end = state.start;
-        state.start = ymd;
-      } else {
-        state.end = ymd;
-      }
+    if (state.mode === "half") {
+      state.halfDate = ymd;
       return;
     }
-    var parts = key.split(":");
-    var period = state.past.filter(function (item) { return String(item.id) === parts[0]; })[0];
-    if (!period) return;
-    var field = parts[1];
-    if (field === "report") {
-      period.report = ymd;
-      return;
-    }
-    if (!period.start || period.end) {
-      period.start = ymd;
-      period.end = "";
-    } else if (ymd < period.start) {
-      period.end = period.start;
-      period.start = ymd;
+    if (!state.start || state.end) {
+      state.start = ymd;
+      state.end = "";
+    } else if (ymd < state.start) {
+      state.end = state.start;
+      state.start = ymd;
     } else {
-      period.end = ymd;
+      state.end = ymd;
     }
   }
 
@@ -229,40 +215,26 @@
   }
 
   function pastStep() {
-    var html = '<p class="help">이미 사용한 기간이 있으면 캘린더로 기간과 보고서 제출일을 고릅니다. 없으면 아래를 선택하세요.</p>';
-    html += '<label class="check"><input type="checkbox" data-field="noPast"' + (state.noPast ? " checked" : "") + "><span>올해 사용한 교외체험학습이 없습니다.</span></label>";
-    if (!state.noPast) {
-      state.past.forEach(function (period, index) {
-        html += '<section class="card period"><h2>' + (index + 1) + "번째 사용 기간</h2>";
-        html += "<p class=\"summary\">기간 " + (period.start || "시작일") + " ~ " + (period.end || "종료일") + "</p>";
-        html += calendar(period.id + ":range", "range", period.start, period.end);
-        html += "<p class=\"summary\">보고서 제출일 " + (period.report || "선택 전") + "</p>";
-        html += calendar(period.id + ":report", "single", period.report, "");
-        if (state.past.length > 1) html += '<button type="button" class="ghost" data-action="remove-past" data-id="' + period.id + '">이 기간 빼기</button>';
-        html += "</section>";
-      });
-      html += '<button type="button" class="secondary" data-action="add-past">사용 기간 추가</button>';
-    }
+    var html = '<p class="help">올해 이미 사용한 수업일 수만 적습니다. 날짜는 적지 않습니다. 한 번도 없으면 0입니다.</p>';
+    html += '<label class="field">이미 사용한 수업일<input data-field="usedDays" inputmode="numeric" value="' + esc(state.usedDays) + '" autocomplete="off" placeholder="예: 8"></label>';
     return shell(html + actions(true));
   }
 
   function reportStep(result) {
+    var days = parseUsed(state.usedDays);
     var html = "";
-    if (state.noPast) {
+    if (days === 0) {
       html += banner("ok", "사용한 기간이 없어 보고서 판정은 해당하지 않습니다. 이번 신청만 확인합니다.");
     } else {
-      var needsAck = false;
-      result.pastResults.forEach(function (item, index) {
-        html += '<section class="card"><h2>' + (index + 1) + "번째 기간</h2>";
-        html += banner(item.onTime ? "ok" : "no", esc(item.message));
-        if (item.start && item.end) {
-          html += "<p>" + esc(result.tools.formatKorean(item.start)) + " ~ " + esc(result.tools.formatKorean(item.end)) + "</p>";
-        }
-        if (!item.onTime) needsAck = true;
-        html += "</section>";
-      });
-      if (needsAck) {
-        html += '<label class="check"><input type="checkbox" data-field="pastAck"' + (state.pastAck ? " checked" : "") + "><span>보고서가 늦거나 기준에 못 미친 기간은 미인정 결석이고, 20일에 넣지 않는 것을 확인했습니다.</span></label>";
+      html += '<p class="help">이미 사용한 ' + esc(String(days)) + '일의 보고서를 종료 후 3일 안에 냈는지, 증빙이 충분한지 고릅니다.</p>';
+      html += '<div class="choice">';
+      html += '<button type="button" data-action="report" data-status="pass" aria-pressed="' + (state.reportStatus === "pass" ? "true" : "false") + '">기한 안에 냈고 증빙도 충분합니다</button>';
+      html += '<button type="button" data-action="report" data-status="fail" aria-pressed="' + (state.reportStatus === "fail" ? "true" : "false") + '">늦었거나 증빙이 부족합니다</button></div>';
+      if (result.pastResults[0] && result.pastResults[0].complete) {
+        html += banner(result.pastResults[0].onTime ? "ok" : "no", esc(result.pastResults[0].message));
+      }
+      if (state.reportStatus === "fail") {
+        html += '<label class="check"><input type="checkbox" data-field="reportAck"' + (state.reportAck ? " checked" : "") + "><span>이 사용 일수는 미인정 결석이고, 20일에 넣지 않는 것을 확인했습니다.</span></label>";
       }
     }
     return shell(html + actions(true));
@@ -446,7 +418,9 @@
 
   function finalBlocker(result) {
     if (!state.guideOk) return "첫 안내를 확인해야 작성 내용을 볼 수 있습니다.";
-    if (!state.noPast && result.pastResults.some(function (item) { return !item.complete; })) return "지난 사용 기간과 보고서 제출일을 마쳐 주세요.";
+    if (parseUsed(state.usedDays) === null) return "이미 사용한 수업일 수를 숫자로 적으세요. 없으면 0입니다.";
+    if (parseUsed(state.usedDays) > 0 && result.pastResults.some(function (item) { return !item.complete; })) return "지난 사용 일수의 보고서 결과를 선택하세요.";
+    if (state.reportStatus === "fail" && !state.reportAck) return "미인정으로 처리되는 사용 일수를 확인하세요.";
     if (result.current.incomplete) return result.current.message || "신청 기간을 다시 확인해 주세요.";
     if (!result.capOk) return result.capMessage;
     if (!result.leadOk) return result.leadMessage;
@@ -465,15 +439,13 @@
 
   function validate(step, result) {
     if (step === 0) return state.guideOk ? "" : "안내를 읽고 확인 칸을 선택해야 다음으로 갑니다.";
-    if (step === 1) {
-      if (state.noPast) return "";
-      var missing = result.pastResults.some(function (item) { return !item.complete; });
-      return missing ? "각 사용 기간과 보고서 제출일을 캘린더에서 선택하세요." : "";
-    }
+    if (step === 1) return parseUsed(state.usedDays) === null ? "이미 사용한 수업일 수를 숫자로 적으세요. 없으면 0입니다. 날짜는 적지 않습니다." : "";
     if (step === 2) {
-      if (state.noPast) return "";
-      var late = result.pastResults.some(function (item) { return !item.onTime; });
-      return late && !state.pastAck ? "미인정으로 처리되는 기간을 확인하세요." : "";
+      var days = parseUsed(state.usedDays);
+      if (!days) return "";
+      if (!state.reportStatus) return "보고서 제출 결과를 선택하세요.";
+      if (state.reportStatus === "fail" && !state.reportAck) return "미인정으로 처리되는 사용 일수를 확인하세요.";
+      return "";
     }
     if (step === 3) return result.current.incomplete ? (result.current.message || "신청 기간을 선택하세요.") : "";
     if (step === 4) return result.capOk ? "" : result.capMessage;
@@ -510,7 +482,13 @@
     else if (state.step === 3) html = periodStep(result);
     else if (state.step === 4) html = judgmentStep(result.capOk, result.capMessage);
     else if (state.step === 5) html = judgmentStep(result.leadOk, result.leadMessage);
-    else if (state.step === 6) html = judgmentStep(result.gapOk, result.gapMessage, exampleCard());
+    else if (state.step === 6) {
+      var gapExtra = exampleCard();
+      if (parseUsed(state.usedDays) > 0) {
+        gapExtra += '<label class="check"><input type="checkbox" data-field="gapConfirm"' + (state.gapConfirm ? " checked" : "") + "><span>이번 출발일은 직전 체험의 보고서를 낸 다음 날 이후입니다. 목·금 다음은 월요일이 아니라 화요일부터입니다.</span></label>";
+      }
+      html = judgmentStep(result.gapOk, result.gapMessage, gapExtra);
+    }
     else if (state.step === 7) html = regionStep(result);
     else if (state.step === 8) html = docsStep();
     else if (state.step === 9) html = learningStep();
@@ -546,10 +524,6 @@
     if (!key) return;
     if (target.type === "checkbox") state[key] = target.checked;
     else state[key] = target.value;
-    if (key === "noPast") {
-      state.error = "";
-      render();
-    }
   }
 
   app.addEventListener("input", function (event) {
@@ -560,10 +534,8 @@
     var target = event.target;
     if (target.type === "checkbox") {
       readField(target);
-      if (target.getAttribute("data-field") !== "noPast") {
-        state.error = "";
-        render();
-      }
+      state.error = "";
+      render();
     }
   });
 
@@ -602,15 +574,9 @@
       render();
       return;
     }
-    if (action === "add-past") {
-      state.past.push({ id: nextPastId, start: "", end: "", report: "" });
-      nextPastId += 1;
-      render();
-      return;
-    }
-    if (action === "remove-past") {
-      var id = Number(button.getAttribute("data-id"));
-      state.past = state.past.filter(function (item) { return item.id !== id; });
+    if (action === "report") {
+      state.reportStatus = button.getAttribute("data-status");
+      if (state.reportStatus !== "fail") state.reportAck = false;
       render();
       return;
     }
@@ -621,7 +587,6 @@
     }
     if (action === "reset") {
       state = blankState();
-      nextPastId = 2;
       render();
       return;
     }

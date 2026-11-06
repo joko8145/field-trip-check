@@ -139,51 +139,44 @@
     };
   }
 
-  function overlaps(startA, endA, startB, endB) {
-    return startA <= endB && startB <= endA;
+  function parseUsedDays(value) {
+    if (value === "" || value === null || typeof value === "undefined") return null;
+    var text = String(value).trim();
+    if (!/^\d+$/.test(text)) return null;
+    return Number(text);
   }
 
   function assess(rules, input, today) {
     var tools = create(rules, { today: today });
     var pastResults = [];
     var recognizedPast = 0;
-    var latestEnd = null;
+    var usedDays = parseUsedDays(input.usedDays);
 
-    (input.past || []).forEach(function (period, index) {
-      if (input.noPast) return;
-      var start = tools.parseYmd(period.start);
-      var end = tools.parseYmd(period.end);
-      var report = tools.parseYmd(period.report);
-      var item = {
-        index: index,
+    if (usedDays === null) {
+      pastResults.push({
         complete: false,
         onTime: false,
         schoolDays: 0,
         counted: 0,
-        start: start,
-        end: end,
-        report: report,
-        message: ""
-      };
-
-      if (!start || !end || end < start) {
-        item.message = "사용 기간의 시작일과 종료일을 캘린더에서 선택하세요.";
-      } else if (!report) {
-        item.message = "보고서 제출일을 캘린더에서 선택하세요.";
-        item.schoolDays = tools.schoolDaysInRange(start, end);
-      } else {
-        item.complete = true;
-        item.schoolDays = tools.schoolDaysInRange(start, end);
-        item.onTime = tools.reportOnTime(end, report);
-        item.counted = item.onTime ? item.schoolDays : 0;
-        recognizedPast += item.counted;
-        if (!latestEnd || end > latestEnd) latestEnd = end;
-        item.message = item.onTime
-          ? "보고서가 종료일부터 " + rules.reportDays + "일 이내입니다. 수업일 " + tools.formatDays(item.schoolDays) + "일을 사용 일수에 넣습니다."
-          : "보고서가 종료일부터 " + rules.reportDays + "일을 넘겼습니다. 이 기간은 미인정 결석이며 20일에 넣지 않습니다.";
-      }
-      pastResults.push(item);
-    });
+        message: "이미 사용한 수업일 수를 숫자로 적으세요. 없으면 0입니다."
+      });
+    } else if (usedDays > 0) {
+      var onTime = input.reportStatus === "pass";
+      var decided = onTime || input.reportStatus === "fail";
+      var counted = onTime ? usedDays : 0;
+      recognizedPast = counted;
+      pastResults.push({
+        complete: decided,
+        onTime: onTime,
+        schoolDays: usedDays,
+        counted: counted,
+        message: decided
+          ? (onTime
+            ? "보고서를 기한 안에 냈습니다. 수업일 " + tools.formatDays(usedDays) + "일을 사용 일수에 넣습니다."
+            : "보고서가 늦거나 증빙이 부족합니다. 이 " + tools.formatDays(usedDays) + "일은 미인정 결석이며 20일에 넣지 않습니다.")
+          : "보고서 제출 결과를 선택하세요."
+      });
+    }
 
     var current = {
       incomplete: true,
@@ -238,18 +231,6 @@
       }
     }
 
-    if (!input.noPast && current.start && current.end) {
-      pastResults.forEach(function (period) {
-        if (period.start && period.end && overlaps(current.start, current.end, period.start, period.end)) {
-          current.overlap = true;
-        }
-      });
-      if (current.overlap) {
-        current.incomplete = true;
-        current.message = "이미 사용한 기간과 날짜가 겹칩니다.";
-      }
-    }
-
     var total = recognizedPast + (current.incomplete ? 0 : current.days);
     var capOk = current.incomplete ? false : total <= rules.maxDays + 0.001;
     var capMessage = capOk
@@ -264,14 +245,11 @@
     var gapInfo = null;
     var gapOk = true;
     var gapMessage = "앞서 사용한 기간이 없습니다. 연속 신청 제한에는 걸리지 않습니다.";
-    if (!input.noPast && latestEnd) {
-      var reportDay = tools.nextSchoolDayAfter(latestEnd);
-      var earliest = tools.addDays(reportDay, 1);
-      gapInfo = { latestEnd: latestEnd, reportDay: reportDay, earliest: earliest };
-      gapOk = !current.incomplete && current.start >= earliest;
+    if (usedDays > 0) {
+      gapOk = input.gapConfirm === true;
       gapMessage = gapOk
-        ? "직전 기간 다음 등교일 " + tools.formatKorean(reportDay) + "은 보고서를 내는 날입니다. 사용은 " + tools.formatKorean(earliest) + "부터 가능하고, 선택한 출발일은 그 이후입니다."
-        : "연속 신청은 불가합니다. " + tools.formatKorean(reportDay) + "은 보고서를 내는 등교일이라 사용할 수 없습니다. 사용은 " + tools.formatKorean(earliest) + "부터 가능합니다.";
+        ? "이번 출발일은 직전 체험의 보고서를 낸 다음 날 이후입니다."
+        : "연속 신청은 불가합니다. 목·금 다음은 월요일에 보고서를 내고, 사용은 화요일부터입니다. 이번 출발일이 그다음 날 이후인지 확인하세요.";
     }
 
     var regionOk = true;
