@@ -75,9 +75,19 @@
       planText: "",
       dayPlans: {},
       safetyOk: false,
-      view: {}
+      view: {},
+      tour: null
     };
   }
+
+  var TOUR = [
+    { id: "start", title: "출발일", text: "수업일만 셉니다. 오늘 다음 날부터 수업일 3일이 되는 날부터 고릅니다." },
+    { id: "days", title: "체험 일수", text: "이번 체험의 수업일 수입니다. 주말과 공휴일은 빠집니다." },
+    { id: "place", title: "장소", text: "학습 형태를 고르고, 여행장소를 적습니다." },
+    { id: "stay", title: "숙박", text: "숙박이 있으면 이름과 주소를 적습니다." },
+    { id: "people", title: "보호자", text: "보호자 이름과 관계를 적습니다. 인솔자는 성인입니다." }
+  ];
+  var placedTour = -1;
 
   function parseUsed(value) {
     var text = String(value == null ? "" : value).trim();
@@ -107,7 +117,13 @@
   }
 
   function blockedLabel(tools, date) {
-    var note = rules.blockedNotes && rules.blockedNotes[tools.ymd(date)];
+    var key = tools.ymd(date);
+    var note = rules.blockedNotes && rules.blockedNotes[key];
+    if (!note) {
+      (rules.blockedRanges || []).forEach(function (range) {
+        if (!note && range.note && key >= range.from && key <= range.to) note = range.note;
+      });
+    }
     return tools.formatKorean(date) + (note ? " " + note : "");
   }
 
@@ -123,6 +139,18 @@
       }).join(", ");
       html += "<li>" + skipText + " 미포함</li>";
     }
+    (rules.blockedRanges || []).forEach(function (range) {
+      var from = tools.parseYmd(range.from);
+      var to = tools.parseYmd(range.to);
+      if (from && to) html += "<li>" + esc(shortDate(tools, from) + "~" + shortDate(tools, to) + (range.note ? " " + range.note : "")) + "</li>";
+    });
+    (rules.notices || []).forEach(function (item) {
+      var from = tools.parseYmd(item.from || item.date);
+      var to = item.to ? tools.parseYmd(item.to) : null;
+      if (!from) return;
+      var text = to ? shortDate(tools, from) + "~" + shortDate(tools, to) : shortDate(tools, from);
+      html += "<li>" + esc(text + (item.note ? " " + item.note : "")) + "</li>";
+    });
     (rules.blockedDates || []).forEach(function (ymd) {
       var date = tools.parseYmd(ymd);
       var note = (rules.blockedNotes && rules.blockedNotes[ymd]) || "";
@@ -258,8 +286,8 @@
     html += '<div class="toggle">';
     html += '<button type="button" data-action="region" data-region="domestic" aria-pressed="' + (state.region === "domestic" ? "true" : "false") + '">국내</button>';
     html += '<button type="button" data-action="region" data-region="overseas" aria-pressed="' + (state.region === "overseas" ? "true" : "false") + '">국외</button></div>';
-    html += '<label class="field">출발일<input type="date" data-field="planStart" value="' + esc(state.planStart) + '"></label>';
-    html += '<div class="steppers">' + stepper("draftTrip", "체험 " + state.draftTrip + "일", 1, rules.maxDays) + "</div>";
+    html += '<label class="field" data-tour="start">출발일<input type="date" data-field="planStart" value="' + esc(state.planStart) + '"></label>';
+    html += '<div class="steppers" data-tour="days">' + stepper("draftTrip", "체험 " + state.draftTrip + "일", 1, rules.maxDays) + "</div>";
     html += '<div class="pchips">';
     state.pattern.forEach(function (seg, index) {
       html += '<button type="button" class="pchip trip" data-action="drop" data-index="' + index + '">체험 ' + seg.days + "일</button>";
@@ -271,23 +299,14 @@
     }
     html += "</section>";
     html += '<section class="score' + (plan.ok ? "" : " warn") + '"><div><p class="label">이번 계획</p><p class="big">' + plan.tripDays + '</p></div><div><p>누적 <b>' + plan.total + " / " + rules.maxDays + "</b></p><p>남은 <b>" + remainShown + "일</b></p></div></section>";
-    if (plan.ok) {
-      html += '<section class="guide-card"><h2>만들어진 구간</h2>';
-      plan.blocks.forEach(function (block) {
-        var line = describeBlock(tools, block);
-        html += '<p class="range-line"><i class="dot ' + line.kind + '"></i>' + esc(line.text) + "</p>";
-        if (line.rest) html += '<p class="range-rest">' + esc(line.rest) + "</p>";
-      });
-      html += "</section>";
-    }
-    html += '<section class="guide-card"><h2>장소</h2>';
+    html += '<section class="guide-card" data-tour="place"><h2>장소</h2>';
     html += '<div class="choice tight">';
     LEARNING.forEach(function (item) {
       html += '<button type="button" data-action="learning" data-learning="' + item[0] + '" aria-pressed="' + (state.learning === item[0] ? "true" : "false") + '">' + esc(item[1]) + "</button>";
     });
     html += "</div>";
     html += '<label class="field">여행장소<input data-field="place" value="' + esc(state.place) + '" autocomplete="off" placeholder="경주 불국사 또는 태국 방콕"></label>';
-    html += '<div class="choice tight">';
+    html += '<div class="choice tight" data-tour="stay">';
     html += '<button type="button" data-action="stay" data-stay="yes" aria-pressed="' + (state.stay === "yes" ? "true" : "false") + '">숙박이 있습니다</button>';
     html += '<button type="button" data-action="stay" data-stay="no" aria-pressed="' + (state.stay === "no" ? "true" : "false") + '">숙박이 없습니다</button></div>';
     if (state.stay === "yes") {
@@ -295,7 +314,7 @@
       html += '<label class="field">숙박 주소<input data-field="lodgeAddress" value="' + esc(state.lodgeAddress) + '" autocomplete="off" placeholder="도시와 도로명"></label>';
     }
     html += "</section>";
-    html += '<section class="guide-card"><h2>보호자와 인솔자</h2>';
+    html += '<section class="guide-card" data-tour="people"><h2>보호자와 인솔자</h2>';
     html += '<div class="choice tight">';
     html += '<button type="button" data-action="same-person" data-same="same" aria-pressed="' + (state.samePerson === "same" ? "true" : "false") + '">같은 사람</button>';
     html += '<button type="button" data-action="same-person" data-same="diff" aria-pressed="' + (state.samePerson === "diff" ? "true" : "false") + '">다른 사람</button></div>';
@@ -874,8 +893,17 @@
     return html;
   }
 
+  function holdScroll(y) {
+    window.scrollTo(0, y);
+    requestAnimationFrame(function () { window.scrollTo(0, y); });
+    setTimeout(function () { window.scrollTo(0, y); }, 0);
+  }
+
   function render(keepPlace) {
+    if (state.step === 1 && state.tour === null) state.tour = 0;
     var y = keepPlace ? window.scrollY : 0;
+    var tourStep = state.step === 1 && state.tour >= 0 ? state.tour : -1;
+    var tourMoved = tourStep !== placedTour;
     assess();
     var html;
     if (state.step <= 0) html = guidePage();
@@ -883,7 +911,47 @@
     else if (state.step === 2) html = formPage();
     else html = evidencePage();
     app.innerHTML = html + tabs();
-    window.scrollTo(0, y);
+    if (tourMoved && tourStep >= 0) {
+      var target = app.querySelector('[data-tour="' + TOUR[tourStep].id + '"]');
+      if (target) {
+        var box = target.getBoundingClientRect();
+        var topLimit = 72;
+        var bottomLimit = window.innerHeight - 210;
+        if (box.top < topLimit || box.bottom > bottomLimit) window.scrollBy(0, box.top - topLimit);
+      }
+    } else if (keepPlace) holdScroll(y);
+    else window.scrollTo(0, 0);
+    placedTour = tourStep;
+    placeTour();
+  }
+
+  function placeTour() {
+    var old = document.getElementById("tour-layer");
+    if (old) old.remove();
+    if (state.step !== 1 || state.tour < 0 || state.tour >= TOUR.length) return;
+    var item = TOUR[state.tour];
+    var el = app.querySelector('[data-tour="' + item.id + '"]');
+    if (!el) return;
+    var rect = el.getBoundingClientRect();
+    var pad = 6;
+    var top = Math.max(8, rect.top - pad);
+    var left = Math.max(8, rect.left - pad);
+    var width = Math.min(rect.width + pad * 2, window.innerWidth - left - 8);
+    var height = rect.height + pad * 2;
+    var layer = document.createElement("div");
+    layer.id = "tour-layer";
+    layer.innerHTML =
+      '<div class="tour-block" style="top:0;left:0;right:0;height:' + top + 'px"></div>' +
+      '<div class="tour-block" style="top:' + top + "px;left:0;width:" + left + "px;height:" + height + 'px"></div>' +
+      '<div class="tour-block" style="top:' + top + "px;left:" + (left + width) + "px;right:0;height:" + height + 'px"></div>' +
+      '<div class="tour-block" style="top:' + (top + height) + 'px;left:0;right:0;bottom:0"></div>' +
+      '<div class="tour-ring" style="top:' + top + "px;left:" + left + "px;width:" + width + "px;height:" + height + 'px"></div>' +
+      '<section class="tour-card">' +
+      "<h2>" + esc(item.title) + "</h2><p>" + esc(item.text) + "</p>" +
+      '<p class="tour-count">' + (state.tour + 1) + " / " + TOUR.length + "</p>" +
+      '<div class="actions"><button type="button" class="secondary" data-tour-action="skip">건너뛰기</button>' +
+      '<button type="button" data-tour-action="next">' + (state.tour === TOUR.length - 1 ? "알겠습니다" : "다음") + "</button></div></section>";
+    document.body.appendChild(layer);
   }
 
   function inputMessage() {
@@ -1184,32 +1252,32 @@
     state.error = "";
     if (action === "month") {
       shiftMonth(button.getAttribute("data-cal"), Number(button.getAttribute("data-dir")));
-      render();
+      render(true);
       return;
     }
     if (action === "pick") {
       pick(button.getAttribute("data-cal"), button.getAttribute("data-ymd"));
-      render();
+      render(true);
       return;
     }
     if (action === "mode") {
       state.mode = button.getAttribute("data-mode");
-      render();
+      render(true);
       return;
     }
     if (action === "region") {
       state.region = button.getAttribute("data-region");
-      render();
+      render(true);
       return;
     }
     if (action === "stay") {
       state.stay = button.getAttribute("data-stay");
-      render();
+      render(true);
       return;
     }
     if (action === "learning") {
       state.learning = button.getAttribute("data-learning");
-      render();
+      render(true);
       return;
     }
     if (action === "bump") {
@@ -1222,7 +1290,7 @@
         var tripNext = Math.min(max, Math.max(min, tripNow + dir));
         state.pattern = [{ kind: "trip", days: tripNext }];
         state.draftTrip = tripNext;
-        render();
+        render(true);
         return;
       }
       var current = key === "usedDays" ? (parseUsed(state.usedDays) || 0) : Number(state[key]);
@@ -1236,28 +1304,28 @@
           state.gapConfirm = false;
         }
       } else state[key] = nextValue;
-      render();
+      render(true);
       return;
     }
     if (action === "add-seg") {
       if (state.pattern.length < 12) state.pattern.push({ kind: "trip", days: state.draftTrip });
-      render();
+      render(true);
       return;
     }
     if (action === "pop-seg") {
       state.pattern.pop();
-      render();
+      render(true);
       return;
     }
     if (action === "drop") {
       state.pattern.splice(Number(button.getAttribute("data-index")), 1);
-      render();
+      render(true);
       return;
     }
     if (action === "report") {
       state.reportStatus = button.getAttribute("data-status");
       if (state.reportStatus !== "fail") state.reportAck = false;
-      render();
+      render(true);
       return;
     }
     if (action === "same-person") {
@@ -1268,7 +1336,7 @@
         state.chaperoneRel = "";
         state.chaperoneAdult = false;
       }
-      render();
+      render(true);
       return;
     }
     if (action === "goto") {
@@ -1279,7 +1347,7 @@
     }
     if (action === "used-view") {
       state.showUsed = !state.showUsed;
-      render();
+      render(true);
       return;
     }
     if (action === "tab") {
@@ -1330,7 +1398,7 @@
       var message = validate(state.step, assess());
       if (message) {
         state.error = message;
-        render();
+        render(true);
         return;
       }
       state.step = Math.min(STEP_TITLES.length - 1, state.step + 1);
@@ -1338,6 +1406,15 @@
       if (state.step >= 2) state.maxStep = Math.max(state.maxStep, 3);
       render();
     }
+  });
+
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-tour-action]");
+    if (!button) return;
+    var tourAction = button.getAttribute("data-tour-action");
+    if (tourAction === "skip" || (tourAction === "next" && state.tour >= TOUR.length - 1)) state.tour = -2;
+    else if (tourAction === "next") state.tour += 1;
+    render(true);
   });
 
   render();

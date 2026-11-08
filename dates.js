@@ -53,6 +53,14 @@
   function create(rules, options) {
     var holidaySet = new Set(rules.holidays || []);
     var blockedSet = new Set(rules.blockedDates || []);
+    (rules.blockedRanges || []).forEach(function (range) {
+      var cursor = parseYmd(range.from);
+      var end = parseYmd(range.to);
+      while (cursor && end && cursor <= end) {
+        blockedSet.add(ymd(cursor));
+        cursor = addDays(cursor, 1);
+      }
+    });
     var today = dayStart(options && options.today ? options.today : new Date());
 
     function isWeekend(date) {

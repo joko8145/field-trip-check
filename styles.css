@@ -433,6 +433,32 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .period + .period { margin-top: 12px; }
 
+.tour-block { position: fixed; background: rgba(16, 22, 38, 0.55); z-index: 30; }
+.tour-ring {
+  position: fixed;
+  z-index: 31;
+  border: 3px solid #c45b00;
+  border-radius: 16px;
+  pointer-events: none;
+  box-shadow: 0 0 0 4px rgba(196, 91, 0, 0.28);
+}
+.tour-card {
+  position: fixed;
+  z-index: 32;
+  left: 50%;
+  bottom: 12px;
+  width: min(400px, calc(100% - 24px));
+  transform: translateX(-50%);
+  background: white;
+  border-radius: 16px;
+  padding: 14px 16px 12px;
+  box-shadow: 0 10px 28px rgba(16, 22, 38, 0.2);
+}
+.tour-card h2 { margin: 0 0 6px; font-size: 18px; }
+.tour-card p { margin: 0 0 8px; }
+.tour-count { color: var(--muted); font-size: 13px; font-weight: 700; }
+.tour-card .actions { margin: 0; }
+
 @media (min-width: 760px) {
   .pair { grid-template-columns: 1fr 1fr; }
 }
