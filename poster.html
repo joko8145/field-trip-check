@@ -40,8 +40,7 @@
     <section class="card poster-sheet" id="sheet" hidden>
       <p class="kicker">학교장허가체험학습 신청 도우미</p>
       <h2>휴대폰으로 찍고 신청 전에 확인하세요</h2>
-      <img id="qr" alt="교외체험학습 신청 확인 주소의 QR 코드">
-      <p id="shown-url" class="no-print"></p>
+      <img id="qr" alt="학교장허가체험학습 신청 도우미 QR 코드">
     </section>
   </main>
   <script src="qrcode.js"></script>
@@ -78,7 +77,6 @@
         qr.addData(url);
         qr.make();
         document.getElementById("qr").src = qr.createDataURL(8, 4);
-        document.getElementById("shown-url").textContent = url;
         document.getElementById("sheet").hidden = false;
       } catch (e) {
         error.hidden = false;
