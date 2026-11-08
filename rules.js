@@ -12,7 +12,20 @@
     reportDays: 3,
     domesticMaxConsecutive: 5,
     publicUrl: "https://joko8145.github.io/field-trip-check/index.html",
-    blockedDates: [],
+    blockedDates: [
+      "2027-01-07"
+    ],
+    blockedNotes: {
+      "2027-01-07": "졸업식"
+    },
+    skipDates: [
+      "2026-12-25",
+      "2027-01-01"
+    ],
+    skipNotes: {
+      "2026-12-25": "크리스마스",
+      "2027-01-01": "새해"
+    },
     holidays: [
       "2026-01-01",
       "2026-02-16",
@@ -35,7 +48,8 @@
       "2026-10-03",
       "2026-10-05",
       "2026-10-09",
-      "2026-12-25"
+      "2026-12-25",
+      "2027-01-01"
     ]
   };
 

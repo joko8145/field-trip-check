@@ -94,7 +94,10 @@
       var found = [];
       if (!from || !to || to < from) return found;
       eachDate(from, to, function (date) {
-        if (isBlocked(date)) found.push(formatKorean(date));
+        if (isBlocked(date)) {
+          var note = rules.blockedNotes && rules.blockedNotes[ymd(date)];
+          found.push(formatKorean(date) + (note ? " " + note : ""));
+        }
       });
       return found;
     }
@@ -111,8 +114,25 @@
       return gap >= 0 && gap <= rules.reportDays;
     }
 
+    function leadSpan(start) {
+      if (!start) return 0;
+      var from = addDays(today, 1);
+      if (start < from) return 0;
+      return schoolDaysInRange(from, start);
+    }
+
     function leadOk(start) {
-      return !!start && diffDays(today, start) >= rules.leadDays;
+      return leadSpan(start) >= rules.leadDays;
+    }
+
+    function earliestLeadDate() {
+      var cursor = addDays(today, 1);
+      var guard = 0;
+      while (!leadOk(cursor) && guard < 400) {
+        cursor = addDays(cursor, 1);
+        guard += 1;
+      }
+      return cursor;
     }
 
     return {
@@ -133,9 +153,7 @@
       nextSchoolDayAfter: nextSchoolDayAfter,
       reportOnTime: reportOnTime,
       leadOk: leadOk,
-      earliestLeadDate: function () {
-        return addDays(today, rules.leadDays);
-      }
+      earliestLeadDate: earliestLeadDate
     };
   }
 
@@ -158,7 +176,7 @@
         onTime: false,
         schoolDays: 0,
         counted: 0,
-        message: "이미 사용한 수업일 수를 숫자로 적으세요. 없으면 0입니다."
+        message: "숫자를 적으세요. 없으면 0."
       });
     } else if (usedDays > 0) {
       var onTime = input.reportStatus === "pass";
@@ -172,9 +190,9 @@
         counted: counted,
         message: decided
           ? (onTime
-            ? "보고서를 기한 안에 냈습니다. 수업일 " + tools.formatDays(usedDays) + "일을 사용 일수에 넣습니다."
-            : "보고서가 늦거나 증빙이 부족합니다. 이 " + tools.formatDays(usedDays) + "일은 미인정 결석이며 20일에 넣지 않습니다.")
-          : "보고서 제출 결과를 선택하세요."
+            ? "기한 안에 냈습니다."
+            : "미인정 결석입니다.")
+          : "결과를 고르세요."
       });
     }
 
@@ -188,22 +206,35 @@
       message: ""
     };
 
-    if (input.mode === "half") {
+    if (input.planner) {
+      var plannedStart = tools.parseYmd(input.start);
+      var plannedEnd = tools.parseYmd(input.end);
+      current.start = plannedStart;
+      current.end = plannedEnd || plannedStart;
+      current.days = Number(input.plannedDays) || 0;
+      if (!input.planReady) {
+        current.message = input.planMessage || "계획을 확인하세요.";
+      } else if (!current.days) {
+        current.message = "체험 기간을 추가하세요.";
+      } else {
+        current.incomplete = false;
+      }
+    } else if (input.mode === "half") {
       var half = tools.parseYmd(input.halfDate);
       current.start = half;
       current.end = half;
       if (!half) {
-        current.message = "반일 날짜를 캘린더에서 선택하세요.";
+        current.message = "날짜를 고르세요.";
       } else if (!tools.isSchoolDay(half)) {
-        current.message = "반일은 수업일에만 가능합니다. 주말과 공휴일은 출석으로 세지 않습니다.";
+        current.message = "수업일만 됩니다.";
       } else if (!input.halfUnder4) {
         current.message = "4시간 미만인지 확인하세요.";
       } else if (!input.halfAttended) {
-        current.message = "반일은 당일 수업에 참여한 경우에만 가능합니다.";
+        current.message = "당일 수업에도 참여해야 합니다.";
       } else {
         current.blocked = tools.blockedInRange(half, half);
         if (current.blocked.length) {
-          current.message = "학교 금지일입니다. " + current.blocked.join(", ");
+          current.message = "금지일입니다. " + current.blocked.join(", ");
         } else {
           current.incomplete = false;
           current.days = 0.5;
@@ -215,16 +246,16 @@
       current.start = start;
       current.end = end;
       if (!start || !end) {
-        current.message = "신청 기간을 캘린더에서 선택하세요. 시작일을 누른 다음 종료일을 누르세요.";
+        current.message = "시작일, 그다음 종료일을 누르세요.";
       } else if (end < start) {
-        current.message = "종료일이 시작일보다 앞섭니다.";
+        current.message = "종료일이 더 앞입니다.";
       } else {
         current.days = tools.schoolDaysInRange(start, end);
         current.blocked = tools.blockedInRange(start, end);
         if (current.blocked.length) {
-          current.message = "학교 금지일이 포함되어 있습니다. " + current.blocked.join(", ");
+          current.message = "금지일이 들어 있습니다. " + current.blocked.join(", ");
         } else if (current.days === 0) {
-          current.message = "이 기간에는 수업일이 없습니다. 주말과 공휴일은 출석 일수에서 빠집니다.";
+          current.message = "수업일이 없습니다.";
         } else {
           current.incomplete = false;
         }
@@ -234,33 +265,32 @@
     var total = recognizedPast + (current.incomplete ? 0 : current.days);
     var capOk = current.incomplete ? false : total <= rules.maxDays + 0.001;
     var capMessage = capOk
-      ? "사용 일수 " + tools.formatDays(total) + "일로, 연간 " + rules.maxDays + "일 이내입니다."
-      : "연간 " + rules.maxDays + "일을 넘습니다. 보고서가 통과한 지난 일수 " + tools.formatDays(recognizedPast) + "일과 이번 " + tools.formatDays(current.days) + "일을 더하면 " + tools.formatDays(total) + "일입니다.";
+      ? tools.formatDays(total) + "일. " + rules.maxDays + "일 이내입니다."
+      : rules.maxDays + "일을 넘습니다. " + tools.formatDays(total) + "일입니다.";
 
     var leadOk = !current.incomplete && tools.leadOk(current.start);
     var leadMessage = leadOk
-      ? "출발일 " + tools.formatKorean(current.start) + "은 오늘보다 " + tools.diffDays(tools.today, current.start) + "일 뒤입니다. 신청 기한 " + rules.leadDays + "일 전을 지킵니다."
-      : "신청서는 출발일보다 " + rules.leadDays + "일 전에 내야 합니다. 오늘 기준 가장 빠른 출발일은 " + tools.formatKorean(tools.addDays(tools.today, rules.leadDays)) + "입니다.";
+      ? "가능합니다."
+      : "주말·공휴일은 뺍니다. 가장 빠른 출발일은 " + tools.formatKorean(tools.earliestLeadDate()) + "입니다.";
 
     var gapInfo = null;
     var gapOk = true;
-    var gapMessage = "앞서 사용한 기간이 없습니다. 연속 신청 제한에는 걸리지 않습니다.";
-    if (usedDays > 0) {
+    var gapMessage = "해당 없음.";
+    if (usedDays > 0 && !input.planner) {
       gapOk = input.gapConfirm === true;
-      gapMessage = gapOk
-        ? "이번 출발일은 직전 체험의 보고서를 낸 다음 날 이후입니다."
-        : "연속 신청은 불가합니다. 목·금 다음은 월요일에 보고서를 내고, 사용은 화요일부터입니다. 이번 출발일이 그다음 날 이후인지 확인하세요.";
+      gapMessage = gapOk ? "가능합니다." : "보고서 다음 날 이후인지 확인하세요.";
     }
 
     var regionOk = true;
     var regionMessage = "";
-    if (!current.incomplete && input.region === "domestic" && current.days > rules.domesticMaxConsecutive) {
+    var consecutive = input.planner ? Number(input.segmentMax) || 0 : current.days;
+    if (!current.incomplete && input.region === "domestic" && consecutive > rules.domesticMaxConsecutive) {
       regionOk = false;
-      regionMessage = "국내는 한 기간의 연속 수업일이 " + rules.domesticMaxConsecutive + "일까지입니다. 이 기간은 수업일 " + tools.formatDays(current.days) + "일입니다.";
+      regionMessage = "국내는 연속 " + rules.domesticMaxConsecutive + "일까지입니다.";
     } else if (!current.incomplete && input.region === "overseas") {
-      regionMessage = "해외는 한 기간의 " + rules.domesticMaxConsecutive + "일 상한을 두지 않습니다. 연속 신청 제한과 보고서 다음 날 규칙은 국내와 같습니다.";
+      regionMessage = "해외는 연속 제한이 없습니다.";
     } else if (!current.incomplete && input.region === "domestic") {
-      regionMessage = "국내 연속 수업일 " + tools.formatDays(current.days) + "일로, " + rules.domesticMaxConsecutive + "일 이내입니다.";
+      regionMessage = tools.formatDays(consecutive) + "일. " + rules.domesticMaxConsecutive + "일 이내입니다.";
     }
 
     return {
