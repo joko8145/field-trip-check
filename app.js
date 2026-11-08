@@ -38,6 +38,8 @@
       guide5: false,
       viewSaved: false,
       usedDays: "0",
+      usedSet: false,
+      startSet: false,
       reportStatus: "",
       pastEnd: "",
       reportAck: false,
@@ -46,14 +48,14 @@
       planStart: "",
       draftTrip: 1,
       draftGap: 1,
-      pattern: [{ kind: "trip", days: 1 }],
+      pattern: [],
       mode: "range",
       start: "",
       end: "",
       halfDate: "",
       halfUnder4: false,
       halfAttended: false,
-      region: "domestic",
+      region: "",
       stay: "",
       docStay: false,
       docTicket: false,
@@ -81,8 +83,10 @@
   }
 
   var TOUR = [
+    { id: "used", title: "이미 사용", text: "올해 사용한 수업일을 적습니다. 없으면 −를 눌러 0으로 둡니다." },
+    { id: "region", title: "국내·국외", text: "국내인지 국외인지 고릅니다." },
     { id: "start", title: "출발일", text: "수업일만 셉니다. 오늘 다음 날부터 수업일 3일이 되는 날부터 고릅니다." },
-    { id: "days", title: "체험 일수", text: "이번 체험의 수업일 수입니다. 주말과 공휴일은 빠집니다." },
+    { id: "days", title: "체험 일수", text: "일수를 정하고 추가를 누릅니다. 주말과 공휴일은 빠집니다." },
     { id: "place", title: "장소", text: "학습 형태를 고르고, 여행장소를 적습니다." },
     { id: "stay", title: "숙박", text: "숙박이 있으면 이름과 주소를 적습니다." },
     { id: "people", title: "보호자", text: "보호자 이름과 관계를 적습니다. 인솔자는 성인입니다." }
@@ -127,6 +131,31 @@
     return tools.formatKorean(date) + (note ? " " + note : "");
   }
 
+  function spanText(tools, from, to, note) {
+    if (!from) return "";
+    var text = to ? shortDate(tools, from) + "~" + shortDate(tools, to) : shortDate(tools, from);
+    return text + (note ? " " + note : "");
+  }
+
+  function excludeBox() {
+    var tools = toolsApi.create(rules, { today: today });
+    var lines = [];
+    (rules.blockedRanges || []).forEach(function (range) {
+      var text = spanText(tools, tools.parseYmd(range.from), tools.parseYmd(range.to), range.note);
+      if (text) lines.push(text);
+    });
+    (rules.blockedDates || []).forEach(function (ymd) {
+      var note = (rules.blockedNotes && rules.blockedNotes[ymd]) || "";
+      var text = spanText(tools, tools.parseYmd(ymd), null, note);
+      if (text) lines.push(text);
+    });
+    if (!lines.length) return "";
+    var html = '<section class="exclude-box"><h2>체험학습 제외</h2>';
+    lines.forEach(function (line) { html += "<p>" + esc(line) + "</p>"; });
+    html += "</section>";
+    return html;
+  }
+
   function blockedGuide() {
     var tools = toolsApi.create(rules, { today: today });
     var html = "<ul>";
@@ -139,22 +168,9 @@
       }).join(", ");
       html += "<li>" + skipText + " 미포함</li>";
     }
-    (rules.blockedRanges || []).forEach(function (range) {
-      var from = tools.parseYmd(range.from);
-      var to = tools.parseYmd(range.to);
-      if (from && to) html += "<li>" + esc(shortDate(tools, from) + "~" + shortDate(tools, to) + (range.note ? " " + range.note : "")) + "</li>";
-    });
     (rules.notices || []).forEach(function (item) {
-      var from = tools.parseYmd(item.from || item.date);
-      var to = item.to ? tools.parseYmd(item.to) : null;
-      if (!from) return;
-      var text = to ? shortDate(tools, from) + "~" + shortDate(tools, to) : shortDate(tools, from);
-      html += "<li>" + esc(text + (item.note ? " " + item.note : "")) + "</li>";
-    });
-    (rules.blockedDates || []).forEach(function (ymd) {
-      var date = tools.parseYmd(ymd);
-      var note = (rules.blockedNotes && rules.blockedNotes[ymd]) || "";
-      html += "<li>" + esc(date ? shortDate(tools, date) + (note ? " " + note : "") : ymd) + "</li>";
+      var text = spanText(tools, tools.parseYmd(item.from || item.date), item.to ? tools.parseYmd(item.to) : null, item.note);
+      if (text) html += "<li>" + esc(text) + "</li>";
     });
     html += "</ul>";
     return html;
@@ -220,8 +236,9 @@
       }
     }
     if (blocked.length) warnings.push("금지일이 들어 있습니다. " + blocked.join(", "));
+    if (!state.startSet) warnings.push("출발일을 고르세요.");
     var used = parseUsed(state.usedDays);
-    if (used === null) warnings.push("이미 사용한 일수를 확인하세요.");
+    if (used === null || !state.usedSet) warnings.push("이미 사용한 일수를 확인하세요.");
     var counted = used > 0 ? used : 0;
     if (used > 0 && state.reportStatus !== "pass" && state.reportStatus !== "open") {
       warnings.push("보고서 제출 여부를 고르세요.");
@@ -269,10 +286,10 @@
   function plannerStep() {
     var plan = state._plan;
     var tools = plan.tools;
-    var remainShown = plan.remain < 0 ? 0 : plan.remain;
+    var remainShown = plan.tripDays > 0 && state.usedSet ? Math.max(0, plan.remain) : 0;
     var html = hero("기간부터 계획까지", "날짜를 계산하고, 신청서에 적을 내용을 적습니다.");
     if (state.error) html += banner("no", esc(state.error));
-    html += '<section class="guide-card status-line"><div><p class="mini">이미 사용</p>' + stepper("usedDays", (parseUsed(state.usedDays) || 0) + "일", 0, rules.maxDays) + "</div>";
+    html += '<section class="guide-card status-line"><div data-tour="used"><p class="mini">이미 사용</p>' + stepper("usedDays", (parseUsed(state.usedDays) || 0) + "일", 0, rules.maxDays) + "</div>";
     html += '<div class="remain"><p class="mini">남은 일수</p><b>' + remainShown + "일</b></div></section>";
     if (parseUsed(state.usedDays) > 0) {
       html += '<div class="choice tight">';
@@ -283,7 +300,7 @@
       }
     }
     html += '<section class="guide-card"><h2>패턴으로 계획 만들기</h2>';
-    html += '<div class="toggle">';
+    html += '<div class="toggle" data-tour="region">';
     html += '<button type="button" data-action="region" data-region="domestic" aria-pressed="' + (state.region === "domestic" ? "true" : "false") + '">국내</button>';
     html += '<button type="button" data-action="region" data-region="overseas" aria-pressed="' + (state.region === "overseas" ? "true" : "false") + '">국외</button></div>';
     html += '<label class="field" data-tour="start">출발일<input type="date" data-field="planStart" value="' + esc(state.planStart) + '"></label>';
@@ -508,10 +525,11 @@
 
     var html = hero("교외체험학습 안내", "읽고 확인하면 다음으로 갑니다.");
     if (state.error) html += banner("no", esc(state.error));
+    html += excludeBox();
     html += guideCard("1. 신청 순서", order);
     html += guideCard("2. 쓸 수 있는 일수", days);
     html += guideCard("3. 연속 사용 제한", gap);
-    html += guideCard("4. 체험학습 제외일", blocked);
+    html += guideCard("4. 체험학습 참고일", blocked);
     html += guideCard("5. 꼭 기억하세요", remember);
     html += actions(guideReady(), "다음");
     html += '<p class="footer-note">이 화면에만 있습니다. 저장·전송하지 않습니다.</p>';
@@ -958,6 +976,7 @@
     syncSamePerson();
     var plan = state._plan;
     if (!plan || !plan.ok) return (plan && plan.warnings[0]) || "기간을 확인하세요.";
+    if (!state.region) return "국내인지 국외인지 고르세요.";
     if (!state.learning) return "학습 형태를 고르세요.";
     if (!state.place.trim()) return "여행장소를 적으세요. 예: 경주 불국사";
     if (!state.stay) return "숙박이 있는지 고르세요.";
@@ -1229,6 +1248,7 @@
     }
     if (target.type === "checkbox") state[key] = target.checked;
     else state[key] = target.value;
+    if (key === "planStart") state.startSet = true;
     syncSamePerson();
   }
 
@@ -1296,6 +1316,7 @@
       var current = key === "usedDays" ? (parseUsed(state.usedDays) || 0) : Number(state[key]);
       var nextValue = Math.min(max, Math.max(min, current + dir));
       if (key === "usedDays") {
+        state.usedSet = true;
         state.usedDays = String(nextValue);
         if (!nextValue) {
           state.reportStatus = "";
