@@ -86,10 +86,10 @@
     { id: "used", title: "이미 사용", text: "올해 사용한 수업일입니다. 기본은 0일이고, 남은 일수는 20일입니다." },
     { id: "region", title: "국내·국외", text: "국내인지 국외인지 고릅니다." },
     { id: "start", title: "출발일", text: "수업일만 셉니다. 오늘 다음 날부터 수업일 3일이 되는 날부터 고릅니다." },
-    { id: "days", title: "체험 일수", text: "일수를 정하고 추가를 누릅니다. 주말과 공휴일은 빠집니다." },
+    { id: "days", title: "체험 일수", text: "체험을 누른 다음 추가 버튼을 누르세요. 주말과 공휴일은 빠집니다." },
     { id: "place", title: "장소", text: "학습 형태를 고르고, 여행장소를 적습니다." },
     { id: "stay", title: "숙박", text: "숙박이 있으면 이름과 주소를 적습니다." },
-    { id: "people", title: "보호자", text: "보호자 이름과 관계를 적습니다. 인솔자는 성인입니다." }
+    { id: "people", title: "보호자", text: "보호자 이름과 관계를 적습니다. 인솔자는 성인입니다. 빠진 부분을 채우면 신청서를 보고 작성하세요. 가 나옵니다." }
   ];
   var placedTour = -1;
 
@@ -226,7 +226,7 @@
       warnings.push("주말·공휴일은 뺍니다. 가장 빠른 출발일은 " + tools.formatKorean(tools.earliestLeadDate()) + "입니다.");
     }
     if (!tripDays) {
-      warnings.push("체험 기간을 추가하세요.");
+      warnings.push("체험을 누른 다음 추가 버튼을 누르세요.");
     } else {
       var span = coverSchoolDays(tools, start, tripDays);
       blocked = span.blocked;
@@ -244,7 +244,7 @@
       warnings.push("보고서 제출 여부를 고르세요.");
     }
     if (used > 0 && state.reportStatus === "open" && !tools.parseYmd(state.pastEnd)) {
-      warnings.push("지난 체험이 끝난 수업일을 적으세요.");
+      warnings.push("체험이 끝난 마지막 날을 적으세요.");
     }
     if (counted + tripDays > rules.maxDays) warnings.push("한 해 " + rules.maxDays + "일을 넘습니다.");
     var unique = [];
@@ -296,7 +296,9 @@
       html += '<button type="button" data-action="report" data-status="pass" aria-pressed="' + (state.reportStatus === "pass" ? "true" : "false") + '">보고서를 기한 안에 냈습니다</button>';
       html += '<button type="button" data-action="report" data-status="open" aria-pressed="' + (state.reportStatus === "open" ? "true" : "false") + '">아직 안 냈습니다</button></div>';
       if (state.reportStatus === "open") {
-        html += '<label class="field">지난 체험이 끝난 수업일<input type="date" data-field="pastEnd" value="' + esc(state.pastEnd) + '"></label>';
+        html += '<label class="field">체험이 끝난 마지막 날<input type="date" data-field="pastEnd" value="' + esc(state.pastEnd) + '"></label>';
+        var pastDueNow = reportDue(tools, tools.parseYmd(state.pastEnd));
+        if (pastDueNow) html += '<p class="due-line">지난 보고서는 <span class="due">' + esc(shortDate(tools, pastDueNow)) + "</span> 까지 제출하세요.</p>";
       }
     }
     html += '<section class="guide-card"><h2>패턴으로 계획 만들기</h2>';
@@ -304,13 +306,15 @@
     html += '<button type="button" data-action="region" data-region="domestic" aria-pressed="' + (state.region === "domestic" ? "true" : "false") + '">국내</button>';
     html += '<button type="button" data-action="region" data-region="overseas" aria-pressed="' + (state.region === "overseas" ? "true" : "false") + '">국외</button></div>';
     html += '<label class="field" data-tour="start">출발일<input type="date" data-field="planStart" value="' + esc(state.planStart) + '"></label>';
-    html += '<div class="steppers" data-tour="days">' + stepper("draftTrip", "체험 " + state.draftTrip + "일", 1, rules.maxDays) + "</div>";
+    html += '<div data-tour="days">';
+    html += '<div class="steppers">' + stepper("draftTrip", "체험 " + state.draftTrip + "일", 1, rules.maxDays) + "</div>";
     html += '<div class="pchips">';
     state.pattern.forEach(function (seg, index) {
       html += '<button type="button" class="pchip trip" data-action="drop" data-index="' + index + '">체험 ' + seg.days + "일</button>";
     });
     html += "</div>";
     html += '<div class="actions slim"><button type="button" data-action="add-seg">추가</button><button type="button" class="secondary" data-action="pop-seg">삭제</button></div>';
+    html += "</div>";
     if (!plan.ok && plan.warnings.length) {
       html += '<div class="alert-big">' + plan.warnings.map(function (item) { return esc(item); }).join("<br>") + "</div>";
     }
@@ -323,6 +327,8 @@
     });
     html += "</div>";
     html += '<label class="field">여행장소<input data-field="place" value="' + esc(state.place) + '" autocomplete="off" placeholder="경주 불국사 또는 태국 방콕"></label>';
+    html += "</section>";
+    html += '<section class="guide-card"><h2>숙박</h2>';
     html += '<div class="choice tight" data-tour="stay">';
     html += '<button type="button" data-action="stay" data-stay="yes" aria-pressed="' + (state.stay === "yes" ? "true" : "false") + '">숙박이 있습니다</button>';
     html += '<button type="button" data-action="stay" data-stay="no" aria-pressed="' + (state.stay === "no" ? "true" : "false") + '">숙박이 없습니다</button></div>';
@@ -343,7 +349,11 @@
     }
     html += checkLine("chaperoneAdult", "인솔자는 성인입니다.");
     html += "</section>";
-    html += actions(!inputMessage(), "신청서");
+    var missing = missingParts();
+    var shown = (state._plan && state._plan.warnings) || [];
+    var rest = missing.filter(function (item) { return shown.indexOf(item) < 0; });
+    if (rest.length) html += '<div class="alert-big">빠진 부분<br>' + rest.map(function (item) { return esc(item); }).join("<br>") + "</div>";
+    html += actions(!missing.length, "신청서를 보고 작성하세요.");
     return html;
   }
 
@@ -974,20 +984,29 @@
     document.body.appendChild(layer);
   }
 
-  function inputMessage() {
+  function missingParts() {
     syncSamePerson();
     var plan = state._plan;
-    if (!plan || !plan.ok) return (plan && plan.warnings[0]) || "기간을 확인하세요.";
-    if (!state.region) return "국내인지 국외인지 고르세요.";
-    if (!state.learning) return "학습 형태를 고르세요.";
-    if (!state.place.trim()) return "여행장소를 적으세요. 예: 경주 불국사";
-    if (!state.stay) return "숙박이 있는지 고르세요.";
-    if (state.stay === "yes" && (!state.lodgeName.trim() || !state.lodgeAddress.trim())) return "숙박 이름과 주소를 적으세요.";
-    if (!state.samePerson) return "보호자와 인솔자가 같은지 고르세요.";
-    if (!state.guardianName.trim() || !state.guardianRel.trim()) return "보호자 이름과 관계를 적으세요.";
-    if (state.samePerson === "diff" && (!state.chaperoneName.trim() || !state.chaperoneRel.trim())) return "인솔자 이름과 관계를 적으세요.";
-    if (!state.chaperoneAdult) return "성인 인솔자를 확인하세요.";
-    return "";
+    var items = [];
+    if (!plan || !plan.ok) {
+      if (plan && plan.warnings.length) items = items.concat(plan.warnings);
+      else items.push("기간을 확인하세요.");
+    }
+    if (!state.region) items.push("국내인지 국외인지 고르세요.");
+    if (!state.learning) items.push("학습 형태를 고르세요.");
+    if (!state.place.trim()) items.push("여행장소를 적으세요.");
+    if (!state.stay) items.push("숙박이 있는지 고르세요.");
+    if (state.stay === "yes" && (!state.lodgeName.trim() || !state.lodgeAddress.trim())) items.push("숙박 이름과 주소를 적으세요.");
+    if (!state.samePerson) items.push("보호자와 인솔자가 같은지 고르세요.");
+    if (!state.guardianName.trim() || !state.guardianRel.trim()) items.push("보호자 이름과 관계를 적으세요.");
+    if (state.samePerson === "diff" && (!state.chaperoneName.trim() || !state.chaperoneRel.trim())) items.push("인솔자 이름과 관계를 적으세요.");
+    if (!state.chaperoneAdult) items.push("성인 인솔자를 확인하세요.");
+    return items;
+  }
+
+  function inputMessage() {
+    var items = missingParts();
+    return items[0] || "";
   }
 
   function samplePlace() {
@@ -1078,7 +1097,7 @@
     var lodge = state.stay === "yes" ? (state.lodgeName.trim() + " " + state.lodgeAddress.trim()).trim() : "해당 없음";
     var safety = days.length >= 5 ? "□ 동의함" : "□";
     var html = hero("신청서", "노란 칸을 종이에 적습니다.");
-    html += '<div class="note">목적과 교외체험 학습계획은 예시입니다. 종이에 적을 때 고쳐도 됩니다.</div>';
+    html += '<div class="note">목적과 교외체험 학습계획은 본인의 체험학습으로 내용을 수정하세요.</div>';
     html += '<p class="quiet">성명, 학년, 반, 번, 휴대폰은 종이에만 적습니다. 이 화면에는 받지 않습니다.</p>';
     html += '<section class="paper sheet-scroll"><table class="form-sheet">';
     html += "<caption>학교장허가 교외체험학습 신청서</caption>";
@@ -1096,9 +1115,10 @@
     html += '<tr><th>인솔자명</th><td class="write">' + esc(chaperoneName) + "</td></tr>";
     html += '<tr><th>관계</th><td class="write">' + esc(chaperoneRel) + "</td></tr>";
     html += '<tr><th>인솔자 휴대폰</th><td class="ink">종이에 직접</td></tr>';
-    html += '<tr><th>목적</th><td class="write">' + esc(purposeLine()) + "</td></tr>";
+    html += '<tr><th>목적</th><td class="write">' + esc(purposeLine()) + '<p class="revise">본인의 체험학습으로 내용을 수정하세요.</p></td></tr>';
     html += '<tr><th>교외체험 학습계획</th><td class="write plan-cell">';
     planLines(tools, days).forEach(function (line) { html += "<p>" + esc(line) + "</p>"; });
+    html += '<p class="revise">본인의 체험학습으로 내용을 수정하세요.</p>';
     html += "</td></tr>";
     html += "<tr><th>학생안전</th><td" + (days.length >= 5 ? ' class="write"' : "") + ">5일 이상 연속이면 주 1회 이상 학생이 담임과 직접 통화합니다. " + esc(safety) + "</td></tr>";
     html += '<tr><td class="closing" colspan="2"><p>위와 같이 「학교장허가 교외체험학습」을 신청합니다.</p>';

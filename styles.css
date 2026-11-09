@@ -127,6 +127,8 @@ h2 { font-size: 16px; margin: 0 0 8px; }
   font-weight: 800;
 }
 
+.form-hint { margin: 4px 4px 12px; }
+
 .guide-card p { margin: 0 0 10px; font-size: 15px; }
 .guide-card ol, .guide-card ul { margin: 0; }
 .guide-card li { font-size: 15px; }
@@ -145,6 +147,7 @@ h2 { font-size: 16px; margin: 0 0 8px; }
 .form-sheet .write { background: #fff3c4; font-weight: 800; }
 .form-sheet .ink { color: #8a93a3; font-weight: 700; }
 .form-sheet .plan-cell p { margin: 0 0 4px; }
+.form-sheet .revise { margin: 8px 0 0; color: #c45b00; font-size: 14px; font-weight: 800; }
 .form-sheet .closing { text-align: center; }
 .form-sheet .closing p { margin: 4px 0; }
 .form-sheet .sheet-to { font-size: 16px; font-weight: 800; color: var(--ink); }
