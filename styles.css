@@ -437,9 +437,10 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .period + .period { margin-top: 12px; }
 
-.tour-block { position: fixed; background: rgba(16, 22, 38, 0.55); z-index: 30; }
+#tour-layer { position: absolute; left: 0; top: 0; width: 100%; height: 0; }
+.tour-block { position: absolute; background: rgba(16, 22, 38, 0.55); z-index: 30; pointer-events: none; }
 .tour-ring {
-  position: fixed;
+  position: absolute;
   z-index: 31;
   border: 3px solid #c45b00;
   border-radius: 16px;

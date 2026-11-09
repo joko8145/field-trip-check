@@ -83,7 +83,7 @@
   }
 
   var TOUR = [
-    { id: "used", title: "이미 사용", text: "올해 사용한 수업일을 적습니다. 없으면 −를 눌러 0으로 둡니다." },
+    { id: "used", title: "이미 사용", text: "올해 사용한 수업일입니다. 기본은 0일이고, 남은 일수는 20일입니다." },
     { id: "region", title: "국내·국외", text: "국내인지 국외인지 고릅니다." },
     { id: "start", title: "출발일", text: "수업일만 셉니다. 오늘 다음 날부터 수업일 3일이 되는 날부터 고릅니다." },
     { id: "days", title: "체험 일수", text: "일수를 정하고 추가를 누릅니다. 주말과 공휴일은 빠집니다." },
@@ -238,7 +238,7 @@
     if (blocked.length) warnings.push("금지일이 들어 있습니다. " + blocked.join(", "));
     if (!state.startSet) warnings.push("출발일을 고르세요.");
     var used = parseUsed(state.usedDays);
-    if (used === null || !state.usedSet) warnings.push("이미 사용한 일수를 확인하세요.");
+    if (used === null) warnings.push("이미 사용한 일수를 확인하세요.");
     var counted = used > 0 ? used : 0;
     if (used > 0 && state.reportStatus !== "pass" && state.reportStatus !== "open") {
       warnings.push("보고서 제출 여부를 고르세요.");
@@ -286,7 +286,7 @@
   function plannerStep() {
     var plan = state._plan;
     var tools = plan.tools;
-    var remainShown = plan.tripDays > 0 && state.usedSet ? Math.max(0, plan.remain) : 0;
+    var remainShown = Math.max(0, plan.remain);
     var html = hero("기간부터 계획까지", "날짜를 계산하고, 신청서에 적을 내용을 적습니다.");
     if (state.error) html += banner("no", esc(state.error));
     html += '<section class="guide-card status-line"><div data-tour="used"><p class="mini">이미 사용</p>' + stepper("usedDays", (parseUsed(state.usedDays) || 0) + "일", 0, rules.maxDays) + "</div>";
@@ -952,17 +952,19 @@
     if (!el) return;
     var rect = el.getBoundingClientRect();
     var pad = 6;
-    var top = Math.max(8, rect.top - pad);
-    var left = Math.max(8, rect.left - pad);
-    var width = Math.min(rect.width + pad * 2, window.innerWidth - left - 8);
+    var top = window.scrollY + rect.top - pad;
+    var left = window.scrollX + rect.left - pad;
+    var width = rect.width + pad * 2;
     var height = rect.height + pad * 2;
+    var docW = Math.max(document.documentElement.scrollWidth, window.innerWidth);
+    var docH = Math.max(document.documentElement.scrollHeight, window.innerHeight);
     var layer = document.createElement("div");
     layer.id = "tour-layer";
     layer.innerHTML =
-      '<div class="tour-block" style="top:0;left:0;right:0;height:' + top + 'px"></div>' +
-      '<div class="tour-block" style="top:' + top + "px;left:0;width:" + left + "px;height:" + height + 'px"></div>' +
-      '<div class="tour-block" style="top:' + top + "px;left:" + (left + width) + "px;right:0;height:" + height + 'px"></div>' +
-      '<div class="tour-block" style="top:' + (top + height) + 'px;left:0;right:0;bottom:0"></div>' +
+      '<div class="tour-block" style="top:0;left:0;width:' + docW + "px;height:" + Math.max(0, top) + 'px"></div>' +
+      '<div class="tour-block" style="top:' + top + "px;left:0;width:" + Math.max(0, left) + "px;height:" + height + 'px"></div>' +
+      '<div class="tour-block" style="top:' + top + "px;left:" + (left + width) + "px;width:" + Math.max(0, docW - left - width) + "px;height:" + height + 'px"></div>' +
+      '<div class="tour-block" style="top:' + (top + height) + "px;left:0;width:" + docW + "px;height:" + Math.max(0, docH - top - height) + 'px"></div>' +
       '<div class="tour-ring" style="top:' + top + "px;left:" + left + "px;width:" + width + "px;height:" + height + 'px"></div>' +
       '<section class="tour-card">' +
       "<h2>" + esc(item.title) + "</h2><p>" + esc(item.text) + "</p>" +
