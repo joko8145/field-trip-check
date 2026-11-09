@@ -110,6 +110,23 @@ h2 { font-size: 16px; margin: 0 0 8px; }
   margin: 0 0 10px;
 }
 
+.card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  margin: 0 0 8px;
+}
+
+.card-head h2 { margin: 0; }
+
+.need-check {
+  margin: 0;
+  color: #c45b00;
+  font-size: 15px;
+  font-weight: 800;
+}
+
 .guide-card p { margin: 0 0 10px; font-size: 15px; }
 .guide-card ol, .guide-card ul { margin: 0; }
 .guide-card li { font-size: 15px; }

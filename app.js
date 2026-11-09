@@ -530,7 +530,7 @@
     html += guideCard("2. 쓸 수 있는 일수", days);
     html += guideCard("3. 연속 사용 제한", gap);
     html += guideCard("4. 체험학습 참고일", blocked);
-    html += guideCard("5. 꼭 기억하세요", remember);
+    html += '<section class="guide-card"><div class="card-head"><h2>5. 꼭 기억하세요</h2><p class="need-check">체크를 다 해야 합니다.</p></div>' + remember + "</section>";
     html += actions(guideReady(), "다음");
     html += '<p class="footer-note">이 화면에만 있습니다. 저장·전송하지 않습니다.</p>';
     return html;
